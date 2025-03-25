@@ -95,6 +95,7 @@ base class Endpoint {
   final List<EndpointType> endpointTypes;
   final List<Param> queryParameters;
   final List<Param>? bodyParameters;
+  final bool requiresAuth;
   final Future<int> Function({
     required T? Function<T>(String paramName) getParam,
     required void Function(int statusCode, String issue) raise,
@@ -105,10 +106,32 @@ base class Endpoint {
     required this.queryParameters,
     required this.bodyParameters,
     required this.handleRequest,
+    required this.requiresAuth,
   });
 
   Future<void> handleRequestToEndpoint(HttpRequest request) async {
     final Map<String, Object?> payload;
+    if (requiresAuth) {
+      if (request.headers.value('Authorization') == null) {
+        request.response
+          ..statusCode = HttpStatus.unauthorized
+          ..write({
+            'msg':
+                "This endpoint requires an Authorization header to be passed in the 'Bearer <TOKEN>' format, but said header is missing."
+          });
+        return;
+      } else if (!request.headers
+          .value('Authorization')!
+          .startsWith('Bearer ')) {
+        request.response
+          ..statusCode = HttpStatus.badRequest
+          ..write({
+            'msg':
+                "This endpoint requires an Authorization header to be passed in the 'Bearer <TOKEN>' format, but the given header is not in the required format."
+          });
+        return;
+      }
+    }
     if (endpointTypes.map((t) => t.method).contains(request.method)) {
       if (bodyParameters != null) {
         try {
@@ -138,7 +161,10 @@ base class Endpoint {
 
     bool isValidReq = true;
     final List<String> issues = [];
-    final Map<String, dynamic> paramStore = {};
+    final Map<String, dynamic> paramStore = {
+      if (requiresAuth)
+        'Authorization': request.headers.value('Authorization')!.substring(7),
+    };
     for (final param in queryParameters) {
       paramStore[param.name] = param.getFromPayload(
         request.uri.queryParameters,
