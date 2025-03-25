@@ -91,6 +91,17 @@ enum EndpointType {
   const EndpointType(this.method);
 }
 
+enum HellcatHeaders {
+  email('H-email'),
+  verified('H-verified'),
+  uid('H-uid'),
+  claims('H-claims'),
+  authorization('H-authorization');
+
+  final String header;
+  const HellcatHeaders(this.header);
+}
+
 base class Endpoint {
   final List<EndpointType> endpointTypes;
   final List<Param> queryParameters;
@@ -112,7 +123,7 @@ base class Endpoint {
   Future<void> handleRequestToEndpoint(HttpRequest request) async {
     final Map<String, Object?> payload;
     if (requiresAuth) {
-      if (request.headers.value('Authorization') == null) {
+      if (request.headers.value(HellcatHeaders.authorization.header) == null) {
         request.response
           ..statusCode = HttpStatus.unauthorized
           ..write({
@@ -121,7 +132,7 @@ base class Endpoint {
           });
         return;
       } else if (!request.headers
-          .value('Authorization')!
+          .value(HellcatHeaders.authorization.header)!
           .startsWith('Bearer ')) {
         request.response
           ..statusCode = HttpStatus.badRequest
@@ -162,8 +173,20 @@ base class Endpoint {
     bool isValidReq = true;
     final List<String> issues = [];
     final Map<String, dynamic> paramStore = {
-      if (requiresAuth)
-        'Authorization': request.headers.value('Authorization')!.substring(7),
+      if (requiresAuth) ...{
+        HellcatHeaders.authorization.header: request.headers
+            .value(HellcatHeaders.authorization.header)!
+            .substring(7),
+        HellcatHeaders.email.header:
+            request.headers.value(HellcatHeaders.email.header),
+        HellcatHeaders.uid.header:
+            request.headers.value(HellcatHeaders.uid.header),
+        HellcatHeaders.verified.header:
+            request.headers.value(HellcatHeaders.verified.header),
+        if (request.headers.value(HellcatHeaders.claims.header) != null)
+          HellcatHeaders.claims.header:
+              jsonDecode(request.headers.value(HellcatHeaders.claims.header)!),
+      }
     };
     for (final param in queryParameters) {
       paramStore[param.name] = param.getFromPayload(
