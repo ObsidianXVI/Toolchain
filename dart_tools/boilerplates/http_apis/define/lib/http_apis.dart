@@ -30,6 +30,8 @@ class API {
               "The requested route segment '${request.uri.pathSegments[0]}' does not exist.",
         });
     }
+
+    await request.response.close();
   }
 }
 
@@ -122,6 +124,8 @@ base class Endpoint {
     final Map<String, Object?> payload;
     if (requiresAuth) {
       if (request.headers.value(HellcatHeaders.authorization.header) == null) {
+        print(
+            "This endpoint requires an Authorization header to be passed in the 'Bearer <TOKEN>' format, but said header is missing.");
         request.response
           ..statusCode = HttpStatus.unauthorized
           ..write({
@@ -132,6 +136,8 @@ base class Endpoint {
       } else if (!request.headers
           .value(HellcatHeaders.authorization.header)!
           .startsWith('Bearer ')) {
+        print(
+            "This endpoint requires an Authorization header to be passed in the 'Bearer <TOKEN>' format, but the given header is not in the required format.");
         request.response
           ..statusCode = HttpStatus.badRequest
           ..write({
@@ -146,6 +152,8 @@ base class Endpoint {
         try {
           payload = jsonDecode(await utf8.decodeStream(request));
         } catch (e, __) {
+          print(
+              "This endpoint expects a valid request body, but an error occurred when parsing it.");
           request.response
             ..statusCode = HttpStatus.badRequest
             ..write({
@@ -208,6 +216,8 @@ base class Endpoint {
     }
 
     if (!isValidReq) {
+      print(
+          "Malformed parameters (either missing or invalid types) in query/body.");
       request.response
         ..statusCode = HttpStatus.badRequest
         ..write({
