@@ -131,18 +131,6 @@ base class Endpoint {
                 "This endpoint requires an Authorization header to be passed in the 'Bearer <TOKEN>' format, but said header is missing."
           });
         return;
-      } else if (!request.headers
-          .value(HellcatHeaders.authorization.header)!
-          .startsWith('Bearer ')) {
-        print(
-            "This endpoint requires an Authorization header to be passed in the 'Bearer <TOKEN>' format, but the given header is not in the required format.");
-        request.response
-          ..statusCode = HttpStatus.badRequest
-          ..write({
-            'msg':
-                "This endpoint requires an Authorization header to be passed in the 'Bearer <TOKEN>' format, but the given header is not in the required format."
-          });
-        return;
       }
     }
     if (endpointTypes.map((t) => t.method).contains(request.method)) {
