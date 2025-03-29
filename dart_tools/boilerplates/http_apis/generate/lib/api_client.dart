@@ -13,26 +13,7 @@ Future<int> emptyHandler(
         {required T? Function<T>(String) getParam,
         required void Function(int, String) raise}) async =>
     0;
-late final API api = API(
-  apiName: 'users_api',
-  routes: [
-    RouteSegment.routes(
-      routeName: 'account',
-      routes: [
-        RouteSegment.endpoint(
-          routeName: 'create',
-          endpoint: Endpoint(
-            endpointTypes: [EndpointType.post],
-            requiresAuth: true,
-            queryParameters: const [],
-            bodyParameters: null,
-            handleRequest: emptyHandler,
-          ),
-        ),
-      ],
-    ),
-  ],
-);
+late final API api;
 void main(List<String> args) async {
   final String intermediateClientName = api.apiName.split('_').join();
   final String clientName =
@@ -68,8 +49,13 @@ class $clientName {
       for (final endpointType in endpoint.endpointTypes) {
         classDefinitions.writeln(
             '  Future<http.Response> ${endpointType.method.toLowerCase()}(');
-        if (qParams.isNotEmpty || endpoint.bodyParameters != null) {
+        if (qParams.isNotEmpty ||
+            endpoint.bodyParameters != null ||
+            endpoint.requiresAuth) {
           classDefinitions.write('{');
+        }
+        if (endpoint.requiresAuth) {
+          classDefinitions.writeln("required String authorization,");
         }
         if (qParams.isNotEmpty) {
           classDefinitions.write("""
@@ -91,11 +77,13 @@ required ({
   
 """);
         }
-        if (qParams.isNotEmpty || endpoint.bodyParameters != null) {
+        if (qParams.isNotEmpty ||
+            endpoint.bodyParameters != null ||
+            endpoint.requiresAuth) {
           classDefinitions.write('}');
         }
         final String? qParamsString;
-        if (qParams.isNotEmpty || endpoint.bodyParameters != null) {
+        if (qParams.isNotEmpty) {
           qParamsString = """{
           ${[
             for (final qparam in endpoint.queryParameters)
@@ -123,6 +111,11 @@ body: jsonEncode({
               "'${bparam.name}': bodyParameters.${bparam.name},",
           ].join('\n')}
 }),
+""");
+        }
+        if (endpoint.requiresAuth) {
+          classDefinitions.write("""
+headers: {'Authorization': 'Bearer \$authorization'},
 """);
         }
         classDefinitions.writeln(");\n}\n}");
