@@ -30,8 +30,6 @@ class API {
               "The requested route segment '${request.uri.pathSegments[0]}' does not exist.",
         });
     }
-
-    await request.response.close();
   }
 }
 
