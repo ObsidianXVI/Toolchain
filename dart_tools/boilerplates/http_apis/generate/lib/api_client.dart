@@ -13,7 +13,26 @@ Future<int> emptyHandler(
         {required T? Function<T>(String) getParam,
         required void Function(int, String) raise}) async =>
     0;
-late final API api;
+late final API api = API(
+  apiName: 'users_api',
+  routes: [
+    RouteSegment.routes(
+      routeName: 'account',
+      routes: [
+        RouteSegment.endpoint(
+          routeName: 'create',
+          endpoint: Endpoint(
+            endpointTypes: [EndpointType.post],
+            requiresAuth: true,
+            queryParameters: const [],
+            bodyParameters: null,
+            handleRequest: emptyHandler,
+          ),
+        ),
+      ],
+    ),
+  ],
+);
 void main(List<String> args) async {
   final String intermediateClientName = api.apiName.split('_').join();
   final String clientName =
@@ -47,12 +66,18 @@ class $clientName {
           "${qparam.encodedType} ${qparam.name},"
       ].join('\n');
       for (final endpointType in endpoint.endpointTypes) {
-        classDefinitions.write("""
-  Future<http.Response> ${endpointType.method.toLowerCase()}({
+        classDefinitions.writeln(
+            '  Future<http.Response> ${endpointType.method.toLowerCase()}(');
+        if (qParams.isNotEmpty || endpoint.bodyParameters != null) {
+          classDefinitions.write('{');
+        }
+        if (qParams.isNotEmpty) {
+          classDefinitions.write("""
     required ({
       $qParams
     }) queryParameters,
     """);
+        }
         if (![EndpointType.delete, EndpointType.get].contains(endpointType) &&
             endpoint.bodyParameters != null) {
           final String bParams = [
@@ -66,17 +91,26 @@ required ({
   
 """);
         }
-        classDefinitions.write("""}) async {
+        if (qParams.isNotEmpty || endpoint.bodyParameters != null) {
+          classDefinitions.write('}');
+        }
+        final String? qParamsString;
+        if (qParams.isNotEmpty || endpoint.bodyParameters != null) {
+          qParamsString = """{
+          ${[
+            for (final qparam in endpoint.queryParameters)
+              "'${qparam.name}': queryParameters.${qparam.name},",
+          ].join('\n')}
+        }""";
+        } else {
+          qParamsString = null;
+        }
+        classDefinitions.write(""") async {
     return await http.${endpointType.method.toLowerCase()}(
       Uri.https(
         'apis.obsivision.com',
         '$routePath',
-        {
-          ${[
-          for (final qparam in endpoint.queryParameters)
-            "'${qparam.name}': queryParameters.${qparam.name},",
-        ].join('\n')}
-        },
+        $qParamsString,
       ),
     """);
         if (![EndpointType.delete, EndpointType.get].contains(endpointType) &&
