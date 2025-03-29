@@ -166,9 +166,9 @@ base class Endpoint {
     final List<String> issues = [];
     final Map<String, dynamic> paramStore = {
       if (requiresAuth) ...{
-        HellcatHeaders.authorization.header: request.headers
-            .value(HellcatHeaders.authorization.header)!
-            .substring(7),
+        HellcatHeaders.authorization.header:
+            request.headers.value(HellcatHeaders.authorization.header) ??
+                (throw Exception('what')),
         HellcatHeaders.email.header:
             request.headers.value(HellcatHeaders.email.header),
         HellcatHeaders.uid.header:
@@ -190,15 +190,17 @@ base class Endpoint {
         },
       );
     }
-    for (final param in bodyParameters!) {
-      paramStore[param.name] = param.getFromPayload(
-        payload,
-        payloadSource: 'body params',
-        ifInvalid: (issue) {
-          issues.add(issue);
-          isValidReq = false;
-        },
-      );
+    if (bodyParameters != null) {
+      for (final param in bodyParameters!) {
+        paramStore[param.name] = param.getFromPayload(
+          payload,
+          payloadSource: 'body params',
+          ifInvalid: (issue) {
+            issues.add(issue);
+            isValidReq = false;
+          },
+        );
+      }
     }
 
     if (!isValidReq) {
