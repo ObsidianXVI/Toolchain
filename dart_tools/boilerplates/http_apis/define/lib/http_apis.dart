@@ -108,6 +108,7 @@ base class Endpoint {
   final Future<int> Function({
     required T? Function<T>(String paramName) getParam,
     required void Function(int statusCode, String issue) raise,
+    required void Function(String body) writeBody,
   }) handleRequest;
 
   const Endpoint({
@@ -216,8 +217,10 @@ base class Endpoint {
       return;
     } else {
       T? getParam<T>(String paramName) => paramStore[paramName] as T;
+      void writeBody(String body) => request.response.write(body);
       final status = await handleRequest(
         getParam: getParam,
+        writeBody: writeBody,
         raise: (statusCode, issue) {
           request.response
             ..statusCode = statusCode
