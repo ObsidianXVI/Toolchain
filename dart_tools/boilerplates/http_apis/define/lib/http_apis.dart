@@ -12,12 +12,22 @@ class API {
     required this.routes,
   });
 
-  Future<void> handleRequest(HttpRequest request) async {
+  /// Handles the given [request] by routing it to the appropriate endpoint. If the actual
+  /// route doesn't start from the first path segment, specify the appropriate [pathSegmentOffset] accordingly.
+  /// For example:
+  /// ```dart
+  /// 'https://domain.com/resources/get/ID'            // pathSegmentOffset should be 0
+  /// 'https://domain.com/some_api/resources/get/ID'   // pathSegmentOffset should be 1
+  /// ```
+  Future<void> handleRequest(
+    HttpRequest request, {
+    int pathSegmentOffset = 0,
+  }) async {
     bool isValid = false;
     for (final route in routes) {
-      if (route.routeName == request.uri.pathSegments[0]) {
+      if (route.routeName == request.uri.pathSegments[pathSegmentOffset]) {
         isValid = true;
-        await route.handleRequestToRoute(request, 0);
+        await route.handleRequestToRoute(request, pathSegmentOffset);
         break;
       }
     }
