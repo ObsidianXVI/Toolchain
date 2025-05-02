@@ -90,9 +90,8 @@ class RouteSegment {
 enum EndpointType {
   get('GET'),
   post('POST'),
-  put('PUT'),
   patch('PATCH'),
-  delete('DELETE'),
+  options('OPTIONS'),
   ;
 
   final String method;
@@ -163,7 +162,16 @@ base class Endpoint {
       } else {
         payload = const {};
       }
+    } else if (endpointTypes.any((type) => [
+              EndpointType.patch,
+              EndpointType.options,
+            ].contains(type)) &&
+        request.method == EndpointType.options.method) {
+      // Handle preflight requests
+      request.response.statusCode = HttpStatus.ok;
+      return;
     } else {
+      print(request.method);
       request.response
         ..statusCode = HttpStatus.methodNotAllowed
         ..write({
@@ -228,7 +236,7 @@ base class Endpoint {
     } else {
       T? getParam<T>(String paramName) => paramStore[paramName] as T;
       void writeBody(String body) => request.response.write(body);
-      final status = await handleRequest(
+      await handleRequest(
         getParam: getParam,
         writeBody: writeBody,
         raise: (statusCode, issue) {
@@ -237,7 +245,6 @@ base class Endpoint {
             ..write({'msg': issue});
         },
       );
-      request.response.statusCode = status;
       return;
     }
   }
