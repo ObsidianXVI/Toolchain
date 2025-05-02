@@ -1,6 +1,6 @@
 name: http_apis_define
 description: Boilerplate code to define HTTP APIs on the server-side
-version: 1.0.7
+version: 1.1.0
 # repository: https://github.com/my_org/my_repo
 
 environment:
