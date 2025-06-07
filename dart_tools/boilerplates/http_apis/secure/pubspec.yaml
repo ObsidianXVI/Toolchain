@@ -1,6 +1,6 @@
-name: http_apis_define
-description: Boilerplate code to define HTTP APIs on the server-side
-version: 1.1.3
+name: http_apis_secure
+description: Security toolkit for REST APIs
+version: 1.0.0
 # repository: https://github.com/my_org/my_repo
 
 environment:
@@ -8,9 +8,8 @@ environment:
 
 # Add regular dependencies here.
 dependencies:
+  encrypt: ^5.0.3
   # path: ^1.8.0
-  http_apis_secure:
-    path: ../secure
 
 dev_dependencies:
   lints: ^4.0.0

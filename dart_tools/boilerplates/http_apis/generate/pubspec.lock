@@ -111,7 +111,7 @@ packages:
       path: "../define"
       relative: true
     source: path
-    version: "1.0.0"
+    version: "1.0.6"
   http_multi_server:
     dependency: transitive
     description:

@@ -1,7 +1,35 @@
 library toolchain.dart.boilerplate.http_apis.define;
 
+import 'package:http_apis_secure/secure.dart' as secure;
 import 'dart:convert';
 import 'dart:io';
+
+enum AuthModel {
+  hellcat,
+  classic_sym,
+  // classic_jwt,
+}
+
+enum HellcatHeaders {
+  email('H-email'),
+  verified('H-verified'),
+  uid('H-uid'),
+  claims('H-claims'),
+  authorization('H-authorization');
+
+  final String header;
+
+  const HellcatHeaders(this.header);
+}
+
+enum ClassicSymParams {
+  uid('uid'),
+  iv('iv'),
+  cipher('cipher');
+
+  final String name;
+  const ClassicSymParams(this.name);
+}
 
 class API {
   final String apiName;
@@ -99,22 +127,12 @@ enum EndpointType {
   const EndpointType(this.method);
 }
 
-enum HellcatHeaders {
-  email('H-email'),
-  verified('H-verified'),
-  uid('H-uid'),
-  claims('H-claims'),
-  authorization('H-authorization');
-
-  final String header;
-  const HellcatHeaders(this.header);
-}
-
 base class Endpoint {
   final List<EndpointType> endpointTypes;
   final List<Param> queryParameters;
   final List<Param>? bodyParameters;
   final bool requiresAuth;
+  final AuthModel authModel;
   final Future<int> Function({
     required T? Function<T>(String paramName) getParam,
     required int Function(int statusCode, String issue) raise,
@@ -127,23 +145,13 @@ base class Endpoint {
     required this.bodyParameters,
     required this.handleRequest,
     required this.requiresAuth,
+    required this.authModel,
   });
 
   Future<void> handleRequestToEndpoint(HttpRequest request) async {
-    final Map<String, Object?> payload;
-    if (requiresAuth) {
-      if (request.headers.value(HellcatHeaders.authorization.header) == null) {
-        print(
-            "This endpoint requires an Authorization header to be passed in the 'Bearer <TOKEN>' format, but said header is missing.");
-        request.response
-          ..statusCode = HttpStatus.unauthorized
-          ..write(jsonEncode({
-            'msg':
-                "This endpoint requires an Authorization header to be passed in the 'Bearer <TOKEN>' format, but said header is missing."
-          }));
-        return;
-      }
-    }
+    // Check for request method validity (if request body is expected, it should be provided,
+    // and PATCH/OPTIONS requests are automatically handled)
+    Map<String, Object?> payload;
     if (endpointTypes.map((t) => t.method).contains(request.method)) {
       if (bodyParameters != null) {
         try {
@@ -181,34 +189,66 @@ base class Endpoint {
       return;
     }
 
+    if (requiresAuth) {
+      switch (authModel) {
+        case AuthModel.hellcat:
+          if (request.headers.value(HellcatHeaders.authorization.header) ==
+              null) {
+            print(
+                "This endpoint requires an Authorization header to be passed in the 'Bearer <TOKEN>' format, but said header is missing.");
+            request.response
+              ..statusCode = HttpStatus.unauthorized
+              ..write(jsonEncode({
+                'msg':
+                    "This endpoint requires an Authorization header to be passed in the 'Bearer <TOKEN>' format, but said header is missing."
+              }));
+          }
+          return;
+        case AuthModel.classic_sym:
+          break;
+      }
+    }
+
     bool isValidReq = true;
     final List<String> issues = [];
-    final Map<String, dynamic> paramStore = {
-      if (requiresAuth) ...{
-        HellcatHeaders.authorization.header:
-            request.headers.value(HellcatHeaders.authorization.header) ??
-                (throw Exception('what')),
-        HellcatHeaders.email.header:
-            request.headers.value(HellcatHeaders.email.header),
-        HellcatHeaders.uid.header:
-            request.headers.value(HellcatHeaders.uid.header),
-        HellcatHeaders.verified.header:
-            request.headers.value(HellcatHeaders.verified.header),
-        if (request.headers.value(HellcatHeaders.claims.header) != null)
-          HellcatHeaders.claims.header:
-              jsonDecode(request.headers.value(HellcatHeaders.claims.header)!),
-      }
-    };
-    for (final param in queryParameters) {
-      paramStore[param.name] = param.getFromPayload(
-        request.uri.queryParameters,
-        payloadSource: 'query params',
-        ifInvalid: (issue) {
-          issues.add(issue);
-          isValidReq = false;
+    final Map<String, dynamic> paramStore = switch (authModel) {
+      AuthModel.hellcat => {
+          HellcatHeaders.authorization.header:
+              request.headers.value(HellcatHeaders.authorization.header) ??
+                  (throw Exception('what')),
+          HellcatHeaders.email.header:
+              request.headers.value(HellcatHeaders.email.header),
+          HellcatHeaders.uid.header:
+              request.headers.value(HellcatHeaders.uid.header),
+          HellcatHeaders.verified.header:
+              request.headers.value(HellcatHeaders.verified.header),
+          if (request.headers.value(HellcatHeaders.claims.header) != null)
+            HellcatHeaders.claims.header: jsonDecode(
+                request.headers.value(HellcatHeaders.claims.header)!),
         },
-      );
+      AuthModel.classic_sym => {
+          ClassicSymParams.uid.name:
+              request.headers.value(ClassicSymParams.uid.name),
+          ClassicSymParams.iv.name: payload[ClassicSymParams.iv.name]!,
+          ClassicSymParams.cipher.name: payload[ClassicSymParams.cipher.name]!,
+        },
+    };
+
+    // Only the Classic Symmetric model will pass all params through the body, and
+    // not through query params (since the body is encrypted).
+    if (authModel != AuthModel.classic_sym) {
+      for (final param in queryParameters) {
+        paramStore[param.name] = param.getFromPayload(
+          request.uri.queryParameters,
+          payloadSource: 'query params',
+          ifInvalid: (issue) {
+            issues.add(issue);
+            isValidReq = false;
+          },
+        );
+      }
     }
+
     if (bodyParameters != null) {
       for (final param in bodyParameters!) {
         paramStore[param.name] = param.getFromPayload(

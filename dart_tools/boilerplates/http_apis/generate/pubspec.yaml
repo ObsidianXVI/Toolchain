@@ -1,6 +1,6 @@
 name: http_apis_generate
 description: Client-side development dependency to generate HTTP APIs boilerplate based on http_apis_define
-version: 1.0.0
+version: 1.0.1
 # repository: https://github.com/my_org/my_repo
 
 environment:
