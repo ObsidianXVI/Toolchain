@@ -24,6 +24,7 @@ class API {
     int pathSegmentOffset = 0,
   }) async {
     bool isValid = false;
+    request.response.headers.set('Content-Type', 'application/json');
     for (final route in routes) {
       if (route.routeName == request.uri.pathSegments[pathSegmentOffset]) {
         isValid = true;
@@ -35,10 +36,10 @@ class API {
     if (!isValid) {
       request.response
         ..statusCode = HttpStatus.notFound
-        ..write({
+        ..write(jsonEncode({
           "msg":
               "The requested route segment '${request.uri.pathSegments[0]}' does not exist.",
-        });
+        }));
     }
   }
 }
@@ -63,7 +64,7 @@ class RouteSegment {
   Future<void> handleRequestToRoute(
       HttpRequest request, int routeSegIndex) async {
     if (isEndpoint) {
-      endpoint!.handleRequestToEndpoint(request);
+      await endpoint!.handleRequestToEndpoint(request);
     } else {
       bool isValid = false;
       for (final route in routes!) {
@@ -77,10 +78,10 @@ class RouteSegment {
       if (!isValid) {
         request.response
           ..statusCode = HttpStatus.notFound
-          ..write({
+          ..write(jsonEncode({
             "msg":
                 "The requested route segment '${request.uri.pathSegments[routeSegIndex + 1]}' does not exist.",
-          });
+          }));
         return;
       }
     }
@@ -116,7 +117,7 @@ base class Endpoint {
   final bool requiresAuth;
   final Future<int> Function({
     required T? Function<T>(String paramName) getParam,
-    required void Function(int statusCode, String issue) raise,
+    required int Function(int statusCode, String issue) raise,
     required void Function(String body) writeBody,
   }) handleRequest;
 
@@ -136,10 +137,10 @@ base class Endpoint {
             "This endpoint requires an Authorization header to be passed in the 'Bearer <TOKEN>' format, but said header is missing.");
         request.response
           ..statusCode = HttpStatus.unauthorized
-          ..write({
+          ..write(jsonEncode({
             'msg':
                 "This endpoint requires an Authorization header to be passed in the 'Bearer <TOKEN>' format, but said header is missing."
-          });
+          }));
         return;
       }
     }
@@ -152,11 +153,11 @@ base class Endpoint {
               "This endpoint expects a valid request body, but an error occurred when parsing it.");
           request.response
             ..statusCode = HttpStatus.badRequest
-            ..write({
+            ..write(jsonEncode({
               'msg':
                   "This endpoint expects a valid request body, but an error occurred when parsing it.",
               'error': e,
-            });
+            }));
           return;
         }
       } else {
@@ -171,13 +172,12 @@ base class Endpoint {
       request.response.statusCode = HttpStatus.ok;
       return;
     } else {
-      print(request.method);
       request.response
         ..statusCode = HttpStatus.methodNotAllowed
-        ..write({
+        ..write(jsonEncode({
           'msg':
               "This endpoint only supports ${endpointTypes.map((t) => t.method).join(', ')} but the request's method is ${request.method}."
-        });
+        }));
       return;
     }
 
@@ -227,24 +227,26 @@ base class Endpoint {
           "Malformed parameters (either missing or invalid types) in query/body.");
       request.response
         ..statusCode = HttpStatus.badRequest
-        ..write({
+        ..write(jsonEncode({
           "msg":
               "Malformed parameters (either missing or invalid types) in query/body.",
           "issues": issues,
-        });
+        }));
       return;
     } else {
+      final StringBuffer responseBody = StringBuffer();
       T? getParam<T>(String paramName) => paramStore[paramName] as T;
-      void writeBody(String body) => request.response.write(body);
-      await handleRequest(
+      void writeBody(String body) => responseBody.write(body);
+      request.response.statusCode = await handleRequest(
         getParam: getParam,
         writeBody: writeBody,
         raise: (statusCode, issue) {
-          request.response
-            ..statusCode = statusCode
-            ..write({'msg': issue});
+          request.response.statusCode = statusCode;
+          responseBody.write(jsonEncode({'msg': issue}));
+          return statusCode;
         },
       );
+      request.response.write(responseBody.toString());
       return;
     }
   }
