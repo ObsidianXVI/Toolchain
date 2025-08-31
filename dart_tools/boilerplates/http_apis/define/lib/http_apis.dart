@@ -6,6 +6,7 @@ import 'dart:io';
 
 enum AuthModel {
   hellcat,
+  classic_token,
   classic_sym,
   // classic_jwt,
 }
@@ -20,6 +21,13 @@ enum HellcatHeaders {
   final String header;
 
   const HellcatHeaders(this.header);
+}
+
+enum ClassicHeaders {
+  authorization('Authorization');
+
+  final String header;
+  const ClassicHeaders(this.header);
 }
 
 enum ClassicSymParams {
@@ -40,7 +48,7 @@ class API {
     required this.routes,
   });
 
-  /// Handles the given [request] by routing it to the appropriate endpoint. If the actual
+  /// Handles the given HTTP [request] by routing it to the appropriate endpoint. If the actual
   /// route doesn't start from the first path segment, specify the appropriate [pathSegmentOffset] accordingly.
   /// For example:
   /// ```dart
@@ -204,6 +212,19 @@ base class Endpoint {
               }));
           }
           return;
+        case AuthModel.classic_token:
+          if (request.headers.value(ClassicHeaders.authorization.header) ==
+              null) {
+            print(
+                "This endpoint requires an Authorization header to be passed in the 'Bearer <TOKEN>' format, but said header is missing.");
+            request.response
+              ..statusCode = HttpStatus.unauthorized
+              ..write(jsonEncode({
+                'msg':
+                    "This endpoint requires an Authorization header to be passed in the 'Bearer <TOKEN>' format, but said header is missing."
+              }));
+          }
+          return;
         case AuthModel.classic_sym:
           break;
       }
@@ -211,42 +232,47 @@ base class Endpoint {
 
     bool isValidReq = true;
     final List<String> issues = [];
-    final Map<String, dynamic> paramStore = switch (authModel) {
-      AuthModel.hellcat => {
-          HellcatHeaders.authorization.header:
-              request.headers.value(HellcatHeaders.authorization.header) ??
-                  (throw Exception('what')),
-          HellcatHeaders.email.header:
-              request.headers.value(HellcatHeaders.email.header),
-          HellcatHeaders.uid.header:
-              request.headers.value(HellcatHeaders.uid.header),
-          HellcatHeaders.verified.header:
-              request.headers.value(HellcatHeaders.verified.header),
-          if (request.headers.value(HellcatHeaders.claims.header) != null)
-            HellcatHeaders.claims.header: jsonDecode(
-                request.headers.value(HellcatHeaders.claims.header)!),
-        },
-      AuthModel.classic_sym => {
-          ClassicSymParams.uid.name:
-              request.headers.value(ClassicSymParams.uid.name),
-          ClassicSymParams.iv.name: payload[ClassicSymParams.iv.name]!,
-          ClassicSymParams.cipher.name: payload[ClassicSymParams.cipher.name]!,
-        },
-    };
+    final Map<String, dynamic> paramStore = requiresAuth
+        ? switch (authModel) {
+            AuthModel.hellcat => {
+                HellcatHeaders.authorization.header: request.headers
+                        .value(HellcatHeaders.authorization.header) ??
+                    (throw Exception('what')),
+                HellcatHeaders.email.header:
+                    request.headers.value(HellcatHeaders.email.header),
+                HellcatHeaders.uid.header:
+                    request.headers.value(HellcatHeaders.uid.header),
+                HellcatHeaders.verified.header:
+                    request.headers.value(HellcatHeaders.verified.header),
+                if (request.headers.value(HellcatHeaders.claims.header) != null)
+                  HellcatHeaders.claims.header: jsonDecode(
+                      request.headers.value(HellcatHeaders.claims.header)!),
+              },
+            AuthModel.classic_token => {
+                ClassicHeaders.authorization.header:
+                    request.headers.value(ClassicHeaders.authorization.header)
+              },
+            AuthModel.classic_sym => {
+                ClassicSymParams.uid.name:
+                    request.headers.value(ClassicSymParams.uid.name),
+                ClassicSymParams.iv.name: payload[ClassicSymParams.iv.name]!,
+                ClassicSymParams.cipher.name:
+                    payload[ClassicSymParams.cipher.name]!,
+              },
+          }
+        : {};
 
     // Only the Classic Symmetric model will pass all params through the body, and
     // not through query params (since the body is encrypted).
-    if (authModel != AuthModel.classic_sym) {
-      for (final param in queryParameters) {
-        paramStore[param.name] = param.getFromPayload(
-          request.uri.queryParameters,
-          payloadSource: 'query params',
-          ifInvalid: (issue) {
-            issues.add(issue);
-            isValidReq = false;
-          },
-        );
-      }
+    for (final param in queryParameters) {
+      paramStore[param.name] = param.getFromPayload(
+        request.uri.queryParameters,
+        payloadSource: 'query params',
+        ifInvalid: (issue) {
+          issues.add(issue);
+          isValidReq = false;
+        },
+      );
     }
 
     if (bodyParameters != null) {
