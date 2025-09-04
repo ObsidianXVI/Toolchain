@@ -168,9 +168,11 @@ base class Endpoint {
     // and PATCH/OPTIONS requests are automatically handled)
     Map<String, Object?> payload;
     if (endpointTypes.map((t) => t.method).contains(request.method)) {
+      print('1');
       if (bodyParameters != null) {
         try {
           payload = jsonDecode(await utf8.decodeStream(request));
+          print('2');
         } catch (e, __) {
           print(
               "This endpoint expects a valid request body, but an error occurred when parsing it.");
@@ -184,6 +186,7 @@ base class Endpoint {
           return;
         }
       } else {
+        print('2');
         payload = const {};
       }
     } else if (endpointTypes.any((type) => [
@@ -230,13 +233,15 @@ base class Endpoint {
                 'msg':
                     "This endpoint requires an Authorization header to be passed in the 'Bearer <TOKEN>' format, but said header is missing."
               }));
+          } else {
+            print('3');
           }
           return;
         case AuthModel.classic_sym:
           break;
       }
     }
-
+    print('4');
     bool isValidReq = true;
     final List<String> issues = [];
     final Map<String, dynamic> paramStore = requiresAuth
@@ -280,7 +285,7 @@ base class Endpoint {
         },
       );
     }
-
+    print('5');
     if (bodyParameters != null) {
       for (final param in bodyParameters!) {
         paramStore[param.name] = param.getFromPayload(
@@ -293,7 +298,7 @@ base class Endpoint {
         );
       }
     }
-
+    print('6');
     if (!isValidReq) {
       print(
           "Malformed parameters (either missing or invalid types) in query/body.");
