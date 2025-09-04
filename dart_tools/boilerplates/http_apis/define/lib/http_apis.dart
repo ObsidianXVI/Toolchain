@@ -194,10 +194,12 @@ base class Endpoint {
               EndpointType.options,
             ].contains(type)) &&
         request.method == EndpointType.options.method) {
+      print('x1');
       // Handle preflight requests
       request.response.statusCode = HttpStatus.ok;
       return;
     } else {
+      print('x2');
       request.response
         ..statusCode = HttpStatus.methodNotAllowed
         ..write(jsonEncode({
