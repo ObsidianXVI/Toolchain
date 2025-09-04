@@ -222,8 +222,9 @@ base class Endpoint {
                 'msg':
                     "This endpoint requires an Authorization header to be passed in the 'Bearer <TOKEN>' format, but said header is missing."
               }));
+            return;
           }
-          return;
+          break;
         case AuthModel.classic_token:
           if (request.headers.value(ClassicHeaders.authorization.header) ==
               null) {
@@ -235,10 +236,11 @@ base class Endpoint {
                 'msg':
                     "This endpoint requires an Authorization header to be passed in the 'Bearer <TOKEN>' format, but said header is missing."
               }));
-          } else {
-            print('3');
+            return;
           }
-          return;
+          print('3');
+          break;
+
         case AuthModel.classic_sym:
           break;
       }
