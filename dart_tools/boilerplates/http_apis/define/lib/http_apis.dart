@@ -59,17 +59,20 @@ class API {
     HttpRequest request, {
     int pathSegmentOffset = 0,
   }) async {
+    print('D: handling request');
     bool isValid = false;
     request.response.headers.set('Content-Type', 'application/json');
     for (final route in routes) {
       if (route.routeName == request.uri.pathSegments[pathSegmentOffset]) {
         isValid = true;
+        print('D: routing request');
         await route.handleRequestToRoute(request, pathSegmentOffset);
         break;
       }
     }
 
     if (!isValid) {
+      print('D: rejecting request');
       request.response
         ..statusCode = HttpStatus.notFound
         ..write(jsonEncode({
@@ -100,18 +103,21 @@ class RouteSegment {
   Future<void> handleRequestToRoute(
       HttpRequest request, int routeSegIndex) async {
     if (isEndpoint) {
+      print('D: routing to endpoint');
       await endpoint!.handleRequestToEndpoint(request);
     } else {
       bool isValid = false;
       for (final route in routes!) {
         if (route.routeName == request.uri.pathSegments[routeSegIndex + 1]) {
           isValid = true;
+          print('D: routing request');
           await route.handleRequestToRoute(request, routeSegIndex + 1);
           break;
         }
       }
 
       if (!isValid) {
+        print('D: rejecting request');
         request.response
           ..statusCode = HttpStatus.notFound
           ..write(jsonEncode({
@@ -157,6 +163,7 @@ base class Endpoint {
   });
 
   Future<void> handleRequestToEndpoint(HttpRequest request) async {
+    print('D: endpoint handling');
     // Check for request method validity (if request body is expected, it should be provided,
     // and PATCH/OPTIONS requests are automatically handled)
     Map<String, Object?> payload;
@@ -261,7 +268,6 @@ base class Endpoint {
               },
           }
         : {};
-
     // Only the Classic Symmetric model will pass all params through the body, and
     // not through query params (since the body is encrypted).
     for (final param in queryParameters) {
@@ -300,6 +306,7 @@ base class Endpoint {
         }));
       return;
     } else {
+      print('D: executing handler');
       final StringBuffer responseBody = StringBuffer();
       T? getParam<T>(String paramName) => paramStore[paramName] as T;
       void writeBody(String body) => responseBody.write(body);
