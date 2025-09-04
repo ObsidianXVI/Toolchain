@@ -59,20 +59,17 @@ class API {
     HttpRequest request, {
     int pathSegmentOffset = 0,
   }) async {
-    print('D: handling request');
     bool isValid = false;
     request.response.headers.set('Content-Type', 'application/json');
     for (final route in routes) {
       if (route.routeName == request.uri.pathSegments[pathSegmentOffset]) {
         isValid = true;
-        print('D: routing request');
         await route.handleRequestToRoute(request, pathSegmentOffset);
         break;
       }
     }
 
     if (!isValid) {
-      print('D: rejecting request');
       request.response
         ..statusCode = HttpStatus.notFound
         ..write(jsonEncode({
@@ -103,21 +100,18 @@ class RouteSegment {
   Future<void> handleRequestToRoute(
       HttpRequest request, int routeSegIndex) async {
     if (isEndpoint) {
-      print('D: routing to endpoint');
       await endpoint!.handleRequestToEndpoint(request);
     } else {
       bool isValid = false;
       for (final route in routes!) {
         if (route.routeName == request.uri.pathSegments[routeSegIndex + 1]) {
           isValid = true;
-          print('D: routing request');
           await route.handleRequestToRoute(request, routeSegIndex + 1);
           break;
         }
       }
 
       if (!isValid) {
-        print('D: rejecting request');
         request.response
           ..statusCode = HttpStatus.notFound
           ..write(jsonEncode({
@@ -163,16 +157,13 @@ base class Endpoint {
   });
 
   Future<void> handleRequestToEndpoint(HttpRequest request) async {
-    print('D: endpoint handling');
     // Check for request method validity (if request body is expected, it should be provided,
     // and PATCH/OPTIONS requests are automatically handled)
     Map<String, Object?> payload;
     if (endpointTypes.map((t) => t.method).contains(request.method)) {
-      print('1');
       if (bodyParameters != null) {
         try {
           payload = jsonDecode(await utf8.decodeStream(request));
-          print('2');
         } catch (e, __) {
           print(
               "This endpoint expects a valid request body, but an error occurred when parsing it.");
@@ -186,7 +177,6 @@ base class Endpoint {
           return;
         }
       } else {
-        print('2');
         payload = const {};
       }
     } else if (endpointTypes.any((type) => [
@@ -194,12 +184,10 @@ base class Endpoint {
               EndpointType.options,
             ].contains(type)) &&
         request.method == EndpointType.options.method) {
-      print('x1');
       // Handle preflight requests
       request.response.statusCode = HttpStatus.ok;
       return;
     } else {
-      print('x2');
       request.response
         ..statusCode = HttpStatus.methodNotAllowed
         ..write(jsonEncode({
@@ -238,14 +226,12 @@ base class Endpoint {
               }));
             return;
           }
-          print('3');
           break;
 
         case AuthModel.classic_sym:
           break;
       }
     }
-    print('4');
     bool isValidReq = true;
     final List<String> issues = [];
     final Map<String, dynamic> paramStore = requiresAuth
@@ -289,7 +275,6 @@ base class Endpoint {
         },
       );
     }
-    print('5');
     if (bodyParameters != null) {
       for (final param in bodyParameters!) {
         paramStore[param.name] = param.getFromPayload(
@@ -302,7 +287,6 @@ base class Endpoint {
         );
       }
     }
-    print('6');
     if (!isValidReq) {
       print(
           "Malformed parameters (either missing or invalid types) in query/body.");
@@ -315,7 +299,6 @@ base class Endpoint {
         }));
       return;
     } else {
-      print('D: executing handler');
       final StringBuffer responseBody = StringBuffer();
       T? getParam<T>(String paramName) => paramStore[paramName] as T;
       void writeBody(String body) => responseBody.write(body);
